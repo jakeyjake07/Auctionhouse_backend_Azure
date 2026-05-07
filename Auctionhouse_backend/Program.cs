@@ -67,7 +67,7 @@ namespace Auctionhouse_backend
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IAuctionService, AuctionService>();
             builder.Services.AddScoped<IBidService, BidService>();
-            builder.Services.AddApplicationInsightsTelemetry();
+            builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
 
 
             var app = builder.Build();
