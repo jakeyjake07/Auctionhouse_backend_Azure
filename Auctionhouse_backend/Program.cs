@@ -31,7 +31,7 @@ namespace Auctionhouse_backend
                     });
             });
 
-            var connString = builder.Configuration.GetConnectionString("DefaultConnection");
+            var connString = builder.Configuration["DefaultConnection"];
 
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlServer(connString));
