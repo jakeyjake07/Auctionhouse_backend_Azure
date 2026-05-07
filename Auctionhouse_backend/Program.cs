@@ -3,6 +3,7 @@ using Auctionhouse_backend.Core.Services;
 using Auctionhouse_backend.Data;
 using Auctionhouse_backend.Data.Interfaces;
 using Auctionhouse_backend.Data.Repos;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -67,7 +68,7 @@ namespace Auctionhouse_backend
             builder.Services.AddScoped<IUserService, UserService>();
             builder.Services.AddScoped<IAuctionService, AuctionService>();
             builder.Services.AddScoped<IBidService, BidService>();
-            builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
+            builder.Services.AddOpenTelemetry().UseAzureMonitor();
 
 
             var app = builder.Build();
