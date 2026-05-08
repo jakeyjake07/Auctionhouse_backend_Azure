@@ -13,12 +13,12 @@ $RESOURCE_GROUP = "RG-Jakob-El-Saidi-0900c0-DotNetCloudDeveloper-VT-Mars-Gotebor
 $LOCATION = "swedencentral"
 $PLAN = "plan-auctionhouse"
 $APP_NAME = "auctionhouse-api-dev"
-$SQL_SERVER = "auctionhouse-sql-dev698"
+$SQL_SERVER = "auctionhouse-sql-dev695"
 $SQL_DB = "AuctionHouseDB"
 $SQL_USER = "sqladmin"
 $SQL_PASSWORD = "BajsBajs123!"
-$STORAGE_ACCOUNT = "stauctionhousedev"
-$KV_NAME = "kv-auctionhouse-dev698"
+$STORAGE_ACCOUNT = "stauctionhousedev695"
+$KV_NAME = "kv-auctionhouse-dev695"
 $INSIGHTS_NAME = "appi-auctionhouse"
 $LAW_NAME = "law-auctionhouse"
 $SUBSCRIPTION_ID = "457c50ad-2cb0-4bed-9fea-fbdf6eed15bf"
@@ -85,6 +85,12 @@ az webapp update --name $APP_NAME --resource-group $RESOURCE_GROUP --https-only 
 Write-Host ">>> Setting minimum TLS version to 1.2..."
 az webapp config set --name $APP_NAME --resource-group $RESOURCE_GROUP --min-tls-version 1.2
 
+
+# =============================================================
+#  STEP 4 - STORAGE ACCOUNT
+# =============================================================
+
+
 Write-Host ">>> Creating Storage Account for backups..."
 az storage account create --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --location $LOCATION --sku Standard_LRS --kind StorageV2
 
@@ -97,17 +103,17 @@ Write-Host ">>> Generating SAS token..."
 $SAS = (az storage container generate-sas --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --name backups --permissions rwdl --expiry 2099-12-31 --output tsv).Trim()
 $BACKUP_URL = "https://${STORAGE_ACCOUNT}.blob.core.windows.net/backups?${SAS}"
 $env:AZURE_BACKUP_URL = $BACKUP_URL
-
-Write-Host ">>> Creating initial backup and scheduling..."
+ 
+Write-Host ">>> Creating initial backup..."
 az webapp config backup create --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url $env:AZURE_BACKUP_URL --frequency 1d --retention 30 --retain-one true
-
-# =============================================================
-#  STEP 4 - STORAGE ACCOUNT
-# =============================================================
-
+ 
+Write-Host ">>> Waiting for backup to initialize (30s)..."
+Start-Sleep -Seconds 30
+ 
 Write-Host ">>> Storage Account $STORAGE_ACCOUNT used for:"
 Write-Host "    - Daily backups (container: backups)"
 Write-Host "    - Can be extended with containers for static files/logs"
+
 
 # =============================================================
 #  STEP 5 - KEY VAULT & MANAGED IDENTITY
