@@ -11,16 +11,16 @@ $ErrorActionPreference = "Continue"
 # =============================================================
 $RESOURCE_GROUP = "RG-Jakob-El-Saidi-0900c0-DotNetCloudDeveloper-VT-Mars-Goteborg"
 $LOCATION = "swedencentral"
-$PLAN = "plan-auctionhouse"
-$APP_NAME = "auctionhouse-api-dev"
-$SQL_SERVER = "auctionhouse-sql-dev694"
+$PLAN = "plan-auctionhouse500"
+$APP_NAME = "auctionhouse-api-dev500"
+$SQL_SERVER = "auctionhouse-sql-dev500"
 $SQL_DB = "AuctionHouseDB"
 $SQL_USER = "sqladmin"
 $SQL_PASSWORD = "BajsBajs123!"
-$STORAGE_ACCOUNT = "stauctionhousedev694"
-$KV_NAME = "kv-auctionhouse-dev694"
-$INSIGHTS_NAME = "appi-auctionhouse"
-$LAW_NAME = "law-auctionhouse"
+$STORAGE_ACCOUNT = "stauctionhousedev500"
+$KV_NAME = "kv-auctionhouse-dev500"
+$INSIGHTS_NAME = "appi-auctionhouse500"
+$LAW_NAME = "law-auctionhouse500"
 $SUBSCRIPTION_ID = "457c50ad-2cb0-4bed-9fea-fbdf6eed15bf"
 
 Write-Host "============================================"
@@ -85,14 +85,12 @@ az webapp update --name $APP_NAME --resource-group $RESOURCE_GROUP --https-only 
 Write-Host ">>> Setting minimum TLS version to 1.2..."
 az webapp config set --name $APP_NAME --resource-group $RESOURCE_GROUP --min-tls-version 1.2
 
-
 # =============================================================
 #  STEP 4 - STORAGE ACCOUNT
 # =============================================================
 
-
 Write-Host ">>> Creating Storage Account for backups..."
-az storage account create --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --location $LOCATION --sku Standard_LRS --kind StorageV2
+az storage account create --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --location $LOCATION --sku Standard_LRS --kind StorageV2 --allow-shared-key-access true
 
 $STORAGE_KEY = az storage account keys list --account-name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --query "[0].value" --output tsv
 
@@ -100,23 +98,21 @@ Write-Host ">>> Creating backup container..."
 az storage container create --name backups --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
 
 Write-Host ">>> Generating SAS token..."
-$SAS = (az storage account generate-sas --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --services b --resource-types co --permissions rwdl --expiry 2099-12-31 --https-only --output tsv).Trim()
+$SAS = (az storage container generate-sas --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --name backups --permissions rwdl --expiry 2099-12-31 --output tsv).Trim()
 $env:AZURE_BACKUP_URL = "https://${STORAGE_ACCOUNT}.blob.core.windows.net/backups?$($SAS -replace '&', '%26')"
- 
+
 Write-Host ">>> Creating initial backup..."
 az webapp config backup create --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url $env:AZURE_BACKUP_URL
- 
+
 Write-Host ">>> Waiting for backup to initialize (30s)..."
 Start-Sleep -Seconds 30
- 
+
 Write-Host ">>> Scheduling daily backup..."
 az webapp config backup update --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url $env:AZURE_BACKUP_URL --frequency 1d --retention 30 --retain-one true
 
- 
 Write-Host ">>> Storage Account $STORAGE_ACCOUNT used for:"
 Write-Host "    - Daily backups (container: backups)"
 Write-Host "    - Can be extended with containers for static files/logs"
-
 
 # =============================================================
 #  STEP 5 - KEY VAULT & MANAGED IDENTITY
@@ -202,7 +198,7 @@ Write-Host "     - Change GetConnectionString to builder.Configuration"
 Write-Host ""
 Write-Host "  3. Run EF migrations against Azure SQL after deployment"
 Write-Host ""
-Write-Host "  5. Clean up resources when done (keep resource group):"
+Write-Host "  4. Clean up resources when done (keep resource group):"
 Write-Host "     az webapp delete --name $APP_NAME --resource-group $RESOURCE_GROUP"
 Write-Host "     az appservice plan delete --name $PLAN --resource-group $RESOURCE_GROUP --yes"
 Write-Host "     az sql server delete --name $SQL_SERVER --resource-group $RESOURCE_GROUP --yes"
