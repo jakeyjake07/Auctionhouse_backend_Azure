@@ -276,7 +276,7 @@ az webapp config appsettings set `
   --settings "DefaultConnection=@Microsoft.KeyVault(SecretUri=${SECRET_URI})"
 
 # =============================================================
-#  KLART
+#  KLART!
 # =============================================================
 
 Write-Host ""
