@@ -13,12 +13,12 @@ $RESOURCE_GROUP = "RG-Jakob-El-Saidi-0900c0-DotNetCloudDeveloper-VT-Mars-Gotebor
 $LOCATION = "swedencentral"
 $PLAN = "plan-auctionhouse"
 $APP_NAME = "auctionhouse-api-dev"
-$SQL_SERVER = "auctionhouse-sql-dev695"
+$SQL_SERVER = "auctionhouse-sql-dev694"
 $SQL_DB = "AuctionHouseDB"
 $SQL_USER = "sqladmin"
 $SQL_PASSWORD = "BajsBajs123!"
-$STORAGE_ACCOUNT = "stauctionhousedev695"
-$KV_NAME = "kv-auctionhouse-dev695"
+$STORAGE_ACCOUNT = "stauctionhousedev694"
+$KV_NAME = "kv-auctionhouse-dev694"
 $INSIGHTS_NAME = "appi-auctionhouse"
 $LAW_NAME = "law-auctionhouse"
 $SUBSCRIPTION_ID = "457c50ad-2cb0-4bed-9fea-fbdf6eed15bf"
@@ -100,15 +100,18 @@ Write-Host ">>> Creating backup container..."
 az storage container create --name backups --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
 
 Write-Host ">>> Generating SAS token..."
-$SAS = (az storage container generate-sas --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --name backups --permissions rwdl --expiry 2099-12-31 --output tsv).Trim()
-$BACKUP_URL = "https://${STORAGE_ACCOUNT}.blob.core.windows.net/backups?${SAS}"
-$env:AZURE_BACKUP_URL = $BACKUP_URL
+$SAS = (az storage account generate-sas --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --services b --resource-types co --permissions rwdl --expiry 2099-12-31 --https-only --output tsv).Trim()
+$env:AZURE_BACKUP_URL = "https://${STORAGE_ACCOUNT}.blob.core.windows.net/backups?$($SAS -replace '&', '%26')"
  
 Write-Host ">>> Creating initial backup..."
-az webapp config backup create --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url $env:AZURE_BACKUP_URL --frequency 1d --retention 30 --retain-one true
+az webapp config backup create --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url $env:AZURE_BACKUP_URL
  
 Write-Host ">>> Waiting for backup to initialize (30s)..."
 Start-Sleep -Seconds 30
+ 
+Write-Host ">>> Scheduling daily backup..."
+az webapp config backup update --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url $env:AZURE_BACKUP_URL --frequency 1d --retention 30 --retain-one true
+
  
 Write-Host ">>> Storage Account $STORAGE_ACCOUNT used for:"
 Write-Host "    - Daily backups (container: backups)"
