@@ -1,31 +1,32 @@
 #!/bin/bash
 # =============================================================
-#  Inlämningsuppgift 1 – Azure App Service Deployment
+#  Assignment 1 - Azure App Service Deployment
 #  Auctionhouse API
-#  Körning: bash setup.sh
+#  Run: bash setup.sh
 # =============================================================
 
 set -e
+export MSYS_NO_PATHCONV=1
 
 # =============================================================
-#  KONFIGURATION – Ändra vid behov
+#  CONFIGURATION - Change as needed
 # =============================================================
 RESOURCE_GROUP="RG-Jakob-El-Saidi-0900c0-DotNetCloudDeveloper-VT-Mars-Goteborg"
 LOCATION="swedencentral"
-PLAN="plan-auctionhouse"
-APP_NAME="auctionhouse-api-dev"
-SQL_SERVER="auctionhouse-sql-dev93"
+PLAN="plan-auctionhouse57"
+APP_NAME="auctionhouse-api-dev57"
+SQL_SERVER="auctionhouse-sql-dev57"
 SQL_DB="AuctionHouseDB"
 SQL_USER="sqladmin"
 SQL_PASSWORD="BajsBajs123!"
-STORAGE_ACCOUNT="stauctionhousedev"
-KV_NAME="kv-auctionhouse-dev93"
-INSIGHTS_NAME="appi-auctionhouse"
-LAW_NAME="law-auctionhouse"
-SUBSCRIPTION_ID="457c50ad-2cb0-4bed-9fea-fbdf6eed15bf"
+STORAGE_ACCOUNT="stauctionhousedev57"
+KV_NAME="kv-auctionhouse-dev57"
+INSIGHTS_NAME="appi-auctionhouse57"
+LAW_NAME="law-auctionhouse57"
+SUBSCRIPTION_ID=$(az account show --query id --output tsv)
 
 echo "============================================"
-echo " Startar deployment..."
+echo " Starting deployment..."
 echo " App:     $APP_NAME"
 echo " SQL:     $SQL_SERVER"
 echo " Storage: $STORAGE_ACCOUNT"
@@ -33,229 +34,169 @@ echo " KV:      $KV_NAME"
 echo "============================================"
 
 # =============================================================
-#  STEG 1 – APP SERVICE & SQL
+#  STEP 1 - APP SERVICE & SQL
 # =============================================================
 
-echo ">>> Skapar App Service Plan (B1)..."
-az appservice plan create \
-  --name $PLAN \
-  --resource-group $RESOURCE_GROUP \
-  --sku B1 \
-  --location $LOCATION
+echo ">>> Creating App Service Plan (B1)..."
+az appservice plan create --name $PLAN --resource-group $RESOURCE_GROUP --sku B1 --location $LOCATION
 
-echo ">>> Skapar App Service..."
-az webapp create \
-  --name $APP_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --plan $PLAN \
-  --runtime "dotnet:10"
+echo ">>> Creating App Service..."
+az webapp create --name $APP_NAME --resource-group $RESOURCE_GROUP --plan $PLAN --runtime "dotnet:10"
 
-echo ">>> Skapar SQL Server..."
-az sql server create \
-  --name $SQL_SERVER \
-  --resource-group $RESOURCE_GROUP \
-  --location $LOCATION \
-  --admin-user $SQL_USER \
-  --admin-password $SQL_PASSWORD
+echo ">>> Creating SQL Server..."
+az sql server create --name $SQL_SERVER --resource-group $RESOURCE_GROUP --location $LOCATION --admin-user $SQL_USER --admin-password $SQL_PASSWORD
 
-echo ">>> Brandväggsregel – tillåt Azure-tjänster..."
-az sql server firewall-rule create \
-  --name AllowAzureServices \
-  --resource-group $RESOURCE_GROUP \
-  --server $SQL_SERVER \
-  --start-ip-address 0.0.0.0 \
-  --end-ip-address 0.0.0.0
+echo ">>> Waiting for SQL Server to be ready (30s)..."
+sleep 30
 
-echo ">>> Brandväggsregel – tillåt din IP..."
+echo ">>> Firewall - allow Azure services..."
+az sql server firewall-rule create --name AllowAzureServices --resource-group $RESOURCE_GROUP --server $SQL_SERVER --start-ip-address 0.0.0.0 --end-ip-address 0.0.0.0
+
+echo ">>> Firewall - allow your IP..."
 MY_IP=$(curl -s https://api.ipify.org)
-az sql server firewall-rule create \
-  --name AllowMyIP \
-  --resource-group $RESOURCE_GROUP \
-  --server $SQL_SERVER \
-  --start-ip-address $MY_IP \
-  --end-ip-address $MY_IP
+az sql server firewall-rule create --name AllowMyIP --resource-group $RESOURCE_GROUP --server $SQL_SERVER --start-ip-address $MY_IP --end-ip-address $MY_IP
 
-echo ">>> Skapar databas (Basic)..."
-az sql db create \
-  --name $SQL_DB \
-  --resource-group $RESOURCE_GROUP \
-  --server $SQL_SERVER \
-  --edition Basic
+echo ">>> Creating database (Basic)..."
+az sql db create --name $SQL_DB --resource-group $RESOURCE_GROUP --server $SQL_SERVER --edition Basic
 
 # =============================================================
-#  STEG 2 – APPLICATION INSIGHTS
+#  STEP 2 - APPLICATION INSIGHTS
 # =============================================================
 
-echo ">>> Skapar Log Analytics Workspace (PerGB2018)..."
-az monitor log-analytics workspace create \
-  --name $LAW_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --location $LOCATION \
-  --sku PerGB2018
+echo ">>> Creating Log Analytics Workspace (PerGB2018)..."
+az monitor log-analytics workspace create --name $LAW_NAME --resource-group $RESOURCE_GROUP --location $LOCATION --sku PerGB2018
 
-echo ">>> Skapar Application Insights..."
-az monitor app-insights component create \
-  --app $INSIGHTS_NAME \
-  --location $LOCATION \
-  --resource-group $RESOURCE_GROUP \
-  --workspace $LAW_NAME
+echo ">>> Creating Application Insights..."
+az monitor app-insights component create --app $INSIGHTS_NAME --location $LOCATION --resource-group $RESOURCE_GROUP --workspace $LAW_NAME
 
-CONN_STR=$(az monitor app-insights component show \
-  --app $INSIGHTS_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --query connectionString --output tsv)
+echo ">>> Waiting for Application Insights to be ready (15s)..."
+sleep 15
 
-echo ">>> Kopplar Application Insights till App Service..."
-az webapp config appsettings set \
-  --name $APP_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --settings APPLICATIONINSIGHTS_CONNECTION_STRING="$CONN_STR"
+CONN_STR=$(az monitor app-insights component show --app $INSIGHTS_NAME --resource-group $RESOURCE_GROUP --query connectionString --output tsv)
+
+echo ">>> Connecting Application Insights to App Service..."
+az webapp config appsettings set --name $APP_NAME --resource-group $RESOURCE_GROUP --settings APPLICATIONINSIGHTS_CONNECTION_STRING="$CONN_STR"
 
 # =============================================================
-#  STEG 3 – SÄKERHET
+#  STEP 3 - SECURITY
 # =============================================================
 
-echo ">>> IP-restriktion – hämtar din IP..."
-MY_IP=$(curl -s https://api.ipify.org)
-echo "    Din IP: $MY_IP"
+echo ">>> IP restriction - your IP: $MY_IP"
+az webapp config access-restriction add --name $APP_NAME --resource-group $RESOURCE_GROUP --rule-name AllowMyIP --action Allow --ip-address "${MY_IP}/32" --priority 100
 
-az webapp config access-restriction add \
-  --name $APP_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --rule-name AllowMyIP \
-  --action Allow \
-  --ip-address "${MY_IP}/32" \
-  --priority 100
+echo ">>> Enabling HTTPS-only..."
+az webapp update --name $APP_NAME --resource-group $RESOURCE_GROUP --https-only true
 
-echo ">>> Aktiverar HTTPS-only..."
-az webapp update \
-  --name $APP_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --https-only true
+echo ">>> Setting minimum TLS version to 1.2..."
+az webapp config set --name $APP_NAME --resource-group $RESOURCE_GROUP --min-tls-version 1.2
 
-echo ">>> Sätter lägsta TLS-version till 1.2..."
-az webapp config set \
-  --name $APP_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --min-tls-version 1.2
+# =============================================================
+#  STEP 4 - STORAGE ACCOUNT
+# =============================================================
 
-echo ">>> Skapar Storage Account för backuper..."
-az storage account create \
-  --name $STORAGE_ACCOUNT \
-  --resource-group $RESOURCE_GROUP \
-  --location $LOCATION \
-  --sku Standard_LRS \
-  --kind StorageV2
+echo ">>> Creating Storage Account..."
+az storage account create --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --location $LOCATION --sku Standard_LRS --kind StorageV2 --allow-shared-key-access true
 
-STORAGE_KEY=$(az storage account keys list \
-  --account-name $STORAGE_ACCOUNT \
-  --resource-group $RESOURCE_GROUP \
-  --query "[0].value" --output tsv)
+STORAGE_KEY=$(az storage account keys list --account-name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --query "[0].value" --output tsv)
 
-echo ">>> Skapar backup-container..."
-az storage container create \
-  --name backups \
-  --account-name $STORAGE_ACCOUNT \
-  --account-key $STORAGE_KEY \
-  --public-access off
+echo ">>> Creating containers..."
+az storage container create --name backups37 --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
+az storage container create --name logs --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
+az storage container create --name staticfiles --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
 
-echo ">>> Genererar SAS-token..."
-SAS=$(az storage container generate-sas \
-  --account-name $STORAGE_ACCOUNT \
-  --name backups \
-  --permissions rwdl \
-  --expiry 2099-12-31 \
-  --output tsv)
+echo ">>> Generating SAS token..."
+SAS=$(az storage container generate-sas --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --name backups --permissions rwdl --expiry 2099-12-31 --output tsv)
 
 BACKUP_URL="https://${STORAGE_ACCOUNT}.blob.core.windows.net/backups?${SAS}"
 
-echo ">>> Skapar en initial backup..."
-az webapp config backup create \
-  --resource-group $RESOURCE_GROUP \
-  --webapp-name $APP_NAME \
-  --container-url "$BACKUP_URL"
+echo ">>> Creating initial backup..."
+az webapp config backup create --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url "$BACKUP_URL" --backup-name "initial-backup"
 
-echo ">>> Schemalägger daglig backup..."
-az webapp config backup update \
-  --resource-group $RESOURCE_GROUP \
-  --webapp-name $APP_NAME \
-  --container-url "$BACKUP_URL" \
-  --frequency 1d \
-  --retention 30 \
-  --retain-one true
+echo ">>> Waiting for backup to initialize (30s)..."
+sleep 30
 
-# =============================================================
-#  STEG 4 – STORAGE ACCOUNT
-# =============================================================
+echo ">>> Scheduling daily backup..."
+az webapp config backup update --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url "$BACKUP_URL" --backup-name "scheduled-backup" --frequency 1d --retention 30 --retain-one true
 
-echo ">>> Storage Account $STORAGE_ACCOUNT används för:"
-echo "    - Dagliga backuper (container: backups)"
-echo "    - Kan utökas med containrar för statiska filer/loggar"
+echo ">>> Storage Account $STORAGE_ACCOUNT used for:"
+echo "    - Daily backups (container: backups)"
+echo "    - Static files (container: staticfiles)"
+echo "    - Log files (container: logs)"
 
 # =============================================================
-#  STEG 5 – KEY VAULT & MANAGED IDENTITY
+#  STEP 5 - KEY VAULT & MANAGED IDENTITY
 # =============================================================
 
-echo ">>> Skapar Key Vault..."
-az keyvault create \
-  --name $KV_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --location $LOCATION \
-  --sku standard
+echo ">>> Creating Key Vault..."
+az keyvault create --name $KV_NAME --resource-group $RESOURCE_GROUP --location $LOCATION --sku standard --enable-rbac-authorization true
 
-echo ""
-echo "    MANUELLT STEG – Roller måste sättas via portalen pga skolmiljöns RBAC-begränsningar:"
-echo "    1. Gå till Key Vault -> Access control (IAM)"
-echo "    2. Lägg till 'Key Vault Secrets Officer' för dig själv"
-echo "    3. Skapa hemligheten 'DefaultConnection' under Secrets"
-echo "    4. Lägg till 'Key Vault Secrets User' för App Services Managed Identity"
-echo "    5. Sätt Key Vault-referensen @Microsoft.KeyVault(SecretUri=...) i App Service -> Environment variables"
-echo ""
+echo ">>> Assigning Key Vault Secrets Officer role to yourself..."
+USER_EMAIL=$(az account show --query user.name --output tsv)
+az role assignment create --assignee $USER_EMAIL --role "Key Vault Secrets Officer" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KV_NAME
 
-echo ">>> Aktiverar Managed Identity på App Service..."
-az webapp identity assign \
-  --name $APP_NAME \
-  --resource-group $RESOURCE_GROUP
+echo ">>> Waiting for role to propagate (15s)..."
+sleep 15
 
-PRINCIPAL_ID=$(az webapp identity show \
-  --name $APP_NAME \
-  --resource-group $RESOURCE_GROUP \
-  --query principalId --output tsv)
+echo ">>> Storing connection string as secret..."
+az keyvault secret set --vault-name $KV_NAME --name DefaultConnection --value "Server=tcp:${SQL_SERVER}.database.windows.net,1433;Initial Catalog=${SQL_DB};User ID=${SQL_USER};Password=${SQL_PASSWORD};Encrypt=True;TrustServerCertificate=False"
 
-echo "    App Service Managed Identity Principal ID: $PRINCIPAL_ID"
-echo "    Använd detta ID när du tilldelar Key Vault Secrets User-rollen i portalen."
+echo ">>> Enabling Managed Identity on App Service..."
+az webapp identity assign --name $APP_NAME --resource-group $RESOURCE_GROUP
+
+echo ">>> Waiting for Managed Identity to propagate (120s)..."
+sleep 120
+
+PRINCIPAL_ID=$(az webapp identity show --name $APP_NAME --resource-group $RESOURCE_GROUP --query principalId --output tsv)
+
+echo ">>> Assigning Key Vault Secrets User role to App Service..."
+USER_OBJECT_ID=$(az ad signed-in-user show --query id --output tsv)
+az role assignment create --assignee-object-id $USER_OBJECT_ID --assignee-principal-type User --role "Key Vault Secrets Officer" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KV_NAME
+
+SECRET_URI=$(az keyvault secret show --vault-name $KV_NAME --name DefaultConnection --query id --output tsv)
+
+echo ">>> Setting Key Vault reference in App Service..."
+az webapp config appsettings set --name $APP_NAME --resource-group $RESOURCE_GROUP --settings "DefaultConnection=@Microsoft.KeyVault(SecretUri=${SECRET_URI})"
 
 # =============================================================
-#  KLART
+#  GITHUB ACTIONS SERVICE PRINCIPAL
+# =============================================================
+
+echo ">>> Creating service principal for GitHub Actions..."
+SP_OUTPUT=$(az ad sp create-for-rbac --name "github-actions-auctionhouse" --role contributor --scopes /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP --sdk-auth)
+
+# =============================================================
+#  DONE!
 # =============================================================
 
 echo ""
 echo "============================================"
-echo " DEPLOYMENT KLAR!"
+echo " DEPLOYMENT COMPLETE!"
 echo "============================================"
 echo ""
-echo "  App Service URL: https://${APP_NAME}.azurewebsites.net"
+echo "  App Service URL: https://$APP_NAME.azurewebsites.net"
 echo ""
-echo "  MANUELLA STEG SOM ÅTERSTÅR:"
+echo "============================================"
+echo " GITHUB ACTIONS - Service Principal JSON:"
+echo " Copy the block below and add as GitHub Secret (AZURE_CREDENTIALS):"
+echo "============================================"
+echo "$SP_OUTPUT"
+echo "============================================"
 echo ""
-echo "  1. Key Vault (portalen):"
-echo "     - Ge dig själv rollen 'Key Vault Secrets Officer'"
-echo "     - Skapa hemligheten 'DefaultConnection'"
-echo "     - Ge Managed Identity ($PRINCIPAL_ID) rollen 'Key Vault Secrets User'"
-echo "     - Sätt @Microsoft.KeyVault(SecretUri=...) som DefaultConnection i App Service"
+echo "  MANUAL STEPS REMAINING:"
 echo ""
-echo "  2. GitHub Actions:"
-echo "     - Använd befintlig AZURE_CREDENTIALS secret"
-echo "     - Se till att .github/workflows/azure-deploy.yml finns i repo-roten"
+echo "  1. GitHub Actions:"
+echo "     - Copy the JSON above -> GitHub -> Settings -> Secrets -> Actions"
+echo "     - Create secret: AZURE_CREDENTIALS"
+echo "     - Ensure .github/workflows/azure-deploy.yml exists in repo root"
 echo ""
-echo "  3. Kodändringar i projektet:"
+echo "  2. Code changes in the project:"
 echo "     - dotnet add package Azure.Monitor.OpenTelemetry.AspNetCore"
-echo "     - Lägg till: builder.Services.AddOpenTelemetry().UseAzureMonitor();"
-echo "     - Ändra GetConnectionString(\"DefaultConnection\") till builder.Configuration[\"DefaultConnection\"]"
+echo "     - Add: builder.Services.AddOpenTelemetry().UseAzureMonitor();"
+echo "     - Change GetConnectionString to builder.Configuration"
 echo ""
-echo "  4. Kör EF-migreringar mot Azure SQL efter deployment"
+echo "  3. Run EF migrations against Azure SQL after deployment"
 echo ""
-echo "  5. Rensa resurser när klart (behåll resursgruppen):"
+echo "  4. Clean up resources when done (keep resource group):"
 echo "     az webapp delete --name $APP_NAME --resource-group $RESOURCE_GROUP"
 echo "     az appservice plan delete --name $PLAN --resource-group $RESOURCE_GROUP --yes"
 echo "     az sql server delete --name $SQL_SERVER --resource-group $RESOURCE_GROUP --yes"
