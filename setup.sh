@@ -13,16 +13,16 @@ export MSYS_NO_PATHCONV=1
 # =============================================================
 RESOURCE_GROUP="RG-Jakob-El-Saidi-0900c0-DotNetCloudDeveloper-VT-Mars-Goteborg"
 LOCATION="swedencentral"
-PLAN="plan-auctionhouse57"
-APP_NAME="auctionhouse-api-dev57"
-SQL_SERVER="auctionhouse-sql-dev57"
+PLAN="plan-auctionhouse87"
+APP_NAME="auctionhouse-api-dev87"
+SQL_SERVER="auctionhouse-sql-dev87"
 SQL_DB="AuctionHouseDB"
 SQL_USER="sqladmin"
 SQL_PASSWORD="BajsBajs123!"
-STORAGE_ACCOUNT="stauctionhousedev57"
-KV_NAME="kv-auctionhouse-dev57"
-INSIGHTS_NAME="appi-auctionhouse57"
-LAW_NAME="law-auctionhouse57"
+STORAGE_ACCOUNT="stauctionhousedev87"
+KV_NAME="kv-auctionhouse-dev87"
+INSIGHTS_NAME="appi-auctionhouse87"
+LAW_NAME="law-auctionhouse87"
 SUBSCRIPTION_ID=$(az account show --query id --output tsv)
 
 echo "============================================"
@@ -100,7 +100,7 @@ az storage account create --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GRO
 STORAGE_KEY=$(az storage account keys list --account-name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --query "[0].value" --output tsv)
 
 echo ">>> Creating containers..."
-az storage container create --name backups37 --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
+az storage container create --name backups --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
 az storage container create --name logs --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
 az storage container create --name staticfiles --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
 
@@ -131,8 +131,8 @@ echo ">>> Creating Key Vault..."
 az keyvault create --name $KV_NAME --resource-group $RESOURCE_GROUP --location $LOCATION --sku standard --enable-rbac-authorization true
 
 echo ">>> Assigning Key Vault Secrets Officer role to yourself..."
-USER_EMAIL=$(az account show --query user.name --output tsv)
-az role assignment create --assignee $USER_EMAIL --role "Key Vault Secrets Officer" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KV_NAME
+USER_OBJECT_ID=$(az ad signed-in-user show --query id --output tsv)
+az role assignment create --assignee-object-id $USER_OBJECT_ID --assignee-principal-type User --role "Key Vault Secrets Officer" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KV_NAME
 
 echo ">>> Waiting for role to propagate (15s)..."
 sleep 15
@@ -146,12 +146,10 @@ az webapp identity assign --name $APP_NAME --resource-group $RESOURCE_GROUP
 echo ">>> Waiting for Managed Identity to propagate (120s)..."
 sleep 120
 
-PRINCIPAL_ID=$(az webapp identity show --name $APP_NAME --resource-group $RESOURCE_GROUP --query principalId --output tsv)
 
 echo ">>> Assigning Key Vault Secrets User role to App Service..."
-USER_OBJECT_ID=$(az ad signed-in-user show --query id --output tsv)
-az role assignment create --assignee-object-id $USER_OBJECT_ID --assignee-principal-type User --role "Key Vault Secrets Officer" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KV_NAME
-
+PRINCIPAL_ID=$(az webapp identity show --name $APP_NAME --resource-group $RESOURCE_GROUP --query principalId --output tsv)
+az role assignment create --assignee-object-id $PRINCIPAL_ID --assignee-principal-type ServicePrincipal --role "Key Vault Secrets User" --scope /subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP/providers/Microsoft.KeyVault/vaults/$KV_NAME
 SECRET_URI=$(az keyvault secret show --vault-name $KV_NAME --name DefaultConnection --query id --output tsv)
 
 echo ">>> Setting Key Vault reference in App Service..."
