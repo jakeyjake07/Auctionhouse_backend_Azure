@@ -12,15 +12,15 @@ $ErrorActionPreference = "Continue"
 $RESOURCE_GROUP = "RG-Jakob-El-Saidi-0900c0-DotNetCloudDeveloper-VT-Mars-Goteborg"
 $LOCATION = "swedencentral"
 $PLAN = "plan-auctionhouse500"
-$APP_NAME = "auctionhouse-api-dev55"
-$SQL_SERVER = "auctionhouse-sql-dev55"
+$APP_NAME = "auctionhouse-api-dev1337"
+$SQL_SERVER = "auctionhouse-sql-dev1337"
 $SQL_DB = "AuctionHouseDB"
 $SQL_USER = "sqladmin"
 $SQL_PASSWORD = "BajsBajs123!"
-$STORAGE_ACCOUNT = "stauctionhousedev55"
-$KV_NAME = "kv-auctionhouse-dev55"
-$INSIGHTS_NAME = "appi-auctionhouse55"
-$LAW_NAME = "law-auctionhouse55"
+$STORAGE_ACCOUNT = "stauctionhousedev1337"
+$KV_NAME = "kv-auctionhouse-dev1337"
+$INSIGHTS_NAME = "appi-auctionhouse1337"
+$LAW_NAME = "law-auctionhouse1337"
 $SUBSCRIPTION_ID = "457c50ad-2cb0-4bed-9fea-fbdf6eed15bf"
 
 Write-Host "============================================"
@@ -90,12 +90,18 @@ az webapp config set --name $APP_NAME --resource-group $RESOURCE_GROUP --min-tls
 # =============================================================
 
 Write-Host ">>> Creating Storage Account for backups..."
-az storage account create --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --location $LOCATION --sku Standard_LRS --kind StorageV2 --allow-shared-key-access true
+az storage account create --name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --location westeurope --sku Standard_LRS --kind StorageV2 --allow-shared-key-access true
 
 $STORAGE_KEY = az storage account keys list --account-name $STORAGE_ACCOUNT --resource-group $RESOURCE_GROUP --query "[0].value" --output tsv
 
 Write-Host ">>> Creating backup container..."
 az storage container create --name backups --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
+
+Write-Host ">>> Creating logs container..."
+az storage container create --name logs --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
+ 
+Write-Host ">>> Creating static-files container..."
+az storage container create --name staticfiles --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --public-access off
 
 Write-Host ">>> Generating SAS token..."
 $SAS = (az storage container generate-sas --account-name $STORAGE_ACCOUNT --account-key $STORAGE_KEY --name backups --permissions rwdl --expiry 2099-12-31 --output tsv).Trim()
@@ -110,9 +116,7 @@ Start-Sleep -Seconds 30
 Write-Host ">>> Scheduling daily backup..."
 az webapp config backup update --resource-group $RESOURCE_GROUP --webapp-name $APP_NAME --container-url $env:AZURE_BACKUP_URL --frequency 1d --retention 30 --retain-one true
 
-Write-Host ">>> Storage Account $STORAGE_ACCOUNT used for:"
-Write-Host "    - Daily backups (container: backups)"
-Write-Host "    - Can be extended with containers for static files/logs"
+
 
 # =============================================================
 #  STEP 5 - KEY VAULT & MANAGED IDENTITY
