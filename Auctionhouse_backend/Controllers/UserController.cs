@@ -118,5 +118,11 @@ namespace Auctionhouse_backend.Controllers
 
         }
 
+        [HttpGet("Hello")]
+        public IActionResult Hello()
+        {
+            return Ok("Hello from UserController!");
+        }
+
     }
 }
