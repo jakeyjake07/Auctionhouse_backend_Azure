@@ -124,5 +124,10 @@ namespace Auctionhouse_backend.Controllers
             return Ok("Hello from UserController!");
         }
         //dwq
+        [HttpGet("Hello5")]
+        public IActionResult Hello5()
+        {
+            return Ok("Hello from UserController!");
+        }
     }
 }
